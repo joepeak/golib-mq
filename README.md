@@ -1,92 +1,310 @@
-# golib-mq
+# Golib MQ
 
+Go 语言消息队列库，支持 Kafka、Redis、NATS 等多种消息队列，提供统一的消息处理接口。
 
+## 功能特性
 
-## Getting started
+- 🚀 **多队列支持**: 支持 Kafka、Redis、NATS、Watermill 等主流消息队列
+- 🔄 **统一接口**: 提供统一的 Producer 和 Consumer 接口，便于切换
+- ⚡ **高性能**: 基于官方客户端，性能优化
+- 🛡️ **错误处理**: 完善的错误处理和重连机制
+- 📊 **监控集成**: 内置日志和监控支持
+- 🔧 **灵活配置**: 支持多种配置方式和连接参数
 
-To make it easy for you to get started with GitLab, here's a list of recommended next steps.
+## 支持的消息队列
 
-Already a pro? Just edit this README.md and make it your own. Want to make it easy? [Use the template at the bottom](#editing-this-readme)!
+| 队列类型 | 包路径 | 特性 |
+|----------|--------|------|
+| **Kafka** | `github.com/joepeak/golib-mq/kafkamq` | 高吞吐量，分区机制 |
+| **Redis** | `github.com/joepeak/golib-mq/redismq` | 轻量级，持久化 |
+| **Watermill-Kafka** | `github.com/joepeak/golib-mq/watermillmq/wmkafka` | 事件驱动，流处理 |
+| **Watermill-NATS** | `github.com/joepeak/golib-mq/watermillmq/wmnats` | 云原生，微服务 |
 
-## Add your files
+## 快速开始
 
-- [ ] [Create](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#create-a-file) or [upload](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#upload-a-file) files
-- [ ] [Add files using the command line](https://docs.gitlab.com/ee/gitlab-basics/add-file.html#add-a-file-using-the-command-line) or push an existing Git repository with the following command:
+### 安装
+
+```bash
+# 安装完整库
+go get github.com/joepeak/golib-mq
+
+# 或通过元包安装
+go get github.com/joepeak/golib-toolbox
+```
+
+### Kafka 示例
+
+```go
+package main
+
+import (
+    "context"
+    "log"
+    
+    "github.com/joepeak/golib-mq/kafkamq"
+    _ "github.com/joepeak/golib-conf"  // 配置初始化
+)
+
+func main() {
+    // 创建生产者
+    producer, err := kafkamq.NewProducer()
+    if err != nil {
+        log.Fatal(err)
+    }
+    
+    // 发送消息
+    err = producer.SendMessage("test-topic", "Hello Kafka!")
+    if err != nil {
+        log.Printf("发送失败: %v", err)
+    }
+    
+    // 创建消费者
+    consumer, err := kafkamq.NewConsumer("test-group")
+    if err != nil {
+        log.Fatal(err)
+    }
+    
+    // 订阅消息
+    consumer.Subscribe("test-topic", func(message []byte) error {
+        log.Printf("收到消息: %s", string(message))
+        return nil
+    })
+}
+```
+
+### Redis 示例
+
+```go
+package main
+
+import (
+    "context"
+    "log"
+    
+    "github.com/joepeak/golib-mq/redismq"
+    _ "github.com/joepeak/golib-conf"
+)
+
+func main() {
+    // 创建生产者
+    producer := redismq.NewProducer()
+    
+    // 发送消息
+    err := producer.SendMessageAsync("test-queue", "Hello Redis!")
+    if err != nil {
+        log.Printf("发送失败: %v", err)
+    }
+    
+    // 创建消费者
+    consumer := redismq.NewConsumer()
+    
+    // 处理消息
+    consumer.Process("test-queue", func(message []byte) error {
+        log.Printf("处理消息: %s", string(message))
+        return nil
+    })
+}
+```
+
+### Watermill 示例
+
+```go
+package main
+
+import (
+    "context"
+    "log"
+    
+    "github.com/ThreeDotsLabs/watermill/message"
+    wmkafka "github.com/joepeak/golib-mq/watermillmq/wmkafka"
+    _ "github.com/joepeak/golib-conf"
+)
+
+func main() {
+    // 创建发布者
+    publisher, err := wmkafka.NewPublisher()
+    if err != nil {
+        log.Fatal(err)
+    }
+    
+    // 发布消息
+    msg := message.NewMessage("test", []byte("Hello Watermill!"))
+    err = publisher.Publish("test-topic", msg)
+    if err != nil {
+        log.Printf("发布失败: %v", err)
+    }
+    
+    // 创建订阅者
+    subscriber, err := wmkafka.NewSubscriber()
+    if err != nil {
+        log.Fatal(err)
+    }
+    
+    // 订阅消息
+    messages, err := subscriber.Subscribe(context.Background(), "test-topic")
+    if err != nil {
+        log.Fatal(err)
+    }
+    
+    for msg := range messages {
+        log.Printf("收到消息: %s", string(msg.Payload))
+        msg.Ack()
+    }
+}
+```
+
+## 配置
+
+### Kafka 配置
+
+```yaml
+mq:
+  kafka:
+    brokers: ["localhost:9092"]
+    producer:
+      max_message_bytes: 1000000
+      compression_type: "gzip"
+    consumer:
+      group_id: "test-group"
+      auto_offset_reset: "earliest"
+```
+
+### Redis 配置
+
+```yaml
+mq:
+  redis:
+    addr: "localhost:6379"
+    password: ""
+    db: 0
+    pool_size: 10
+```
+
+## API 文档
+
+### Kafka 接口
+
+```go
+// 生产者
+func NewProducer() (*Producer, error)
+func (p *Producer) SendMessage(topic string, message string) error
+func (p *Producer) SendMessageAsync(topic string, message string) error
+
+// 消费者
+func NewConsumer(groupID string) (*Consumer, error)
+func (c *Consumer) Subscribe(topic string, handler func([]byte) error) error
+func (c *Consumer) Close() error
+```
+
+### Redis 接口
+
+```go
+// 生产者
+func NewProducer() *Producer
+func (p *Producer) SendMessage(queue string, message interface{}) error
+func (p *Producer) SendMessageAsync(queue string, message interface{}) error
+
+// 消费者
+func NewConsumer() *Consumer
+func (c *Consumer) Process(queue string, handler func([]byte) error) error
+func (c *Consumer) Start() error
+func (c *Consumer) Stop() error
+```
+
+## 项目结构
 
 ```
-cd existing_repo
-git remote add origin http://120.79.39.252/golib/golib-mq.git
-git branch -M main
-git push -uf origin main
+golib-mq/
+├── kafkamq/              # Kafka 实现
+│   ├── consumer/
+│   │   └── consumer.go
+│   ├── producer/
+│   │   └── producer.go
+│   └── kafkamq.go
+├── redismq/              # Redis 实现
+│   ├── consumer/
+│   │   └── consumer.go
+│   ├── producer/
+│   │   └── producer.go
+│   └── redismq.go
+├── watermillmq/           # Watermill 实现
+│   ├── wmkafka/
+│   │   ├── manager.go
+│   │   └── wmkafka.go
+│   └── wmnats/
+│       ├── manager.go
+│       ├── wmnats.go
+│       └── example_usage.go
+├── util/                 # 工具函数
+│   └── util.go
+├── go.mod
+├── go.sum
+└── README.md
 ```
 
-## Integrate with your tools
+## 依赖
 
-- [ ] [Set up project integrations](http://120.79.39.252/golib/golib-mq/-/settings/integrations)
+### Kafka
+- `github.com/IBM/sarama` - Kafka 客户端
+- `github.com/sirupsen/logrus` - 日志库
+- `github.com/spf13/viper` - 配置管理
 
-## Collaborate with your team
+### Redis
+- `github.com/redis/go-redis/v9` - Redis 客户端
+- `github.com/hibiken/asynq` - 异步任务队列
+- `github.com/sirupsen/logrus` - 日志库
 
-- [ ] [Invite team members and collaborators](https://docs.gitlab.com/ee/user/project/members/)
-- [ ] [Create a new merge request](https://docs.gitlab.com/ee/user/project/merge_requests/creating_merge_requests.html)
-- [ ] [Automatically close issues from merge requests](https://docs.gitlab.com/ee/user/project/issues/managing_issues.html#closing-issues-automatically)
-- [ ] [Enable merge request approvals](https://docs.gitlab.com/ee/user/project/merge_requests/approvals/)
-- [ ] [Automatically merge when pipeline succeeds](https://docs.gitlab.com/ee/user/project/merge_requests/merge_when_pipeline_succeeds.html)
+### Watermill
+- `github.com/ThreeDotsLabs/watermill` - 事件流框架
+- `github.com/ThreeDotsLabs/watermill-kafka/v3` - Watermill Kafka 适配器
+- `github.com/ThreeDotsLabs/watermill-nats/v2` - Watermill NATS 适配器
 
-## Test and Deploy
+## 性能特点
 
-Use the built-in continuous integration in GitLab.
+- **Kafka**: 支持高并发，分区机制，适合大数据量场景
+- **Redis**: 轻量快速，支持持久化，适合中小型应用
+- **Watermill**: 事件驱动架构，支持流处理，适合微服务
 
-- [ ] [Get started with GitLab CI/CD](https://docs.gitlab.com/ee/ci/quick_start/index.html)
-- [ ] [Analyze your code for known vulnerabilities with Static Application Security Testing(SAST)](https://docs.gitlab.com/ee/user/application_security/sast/)
-- [ ] [Deploy to Kubernetes, Amazon EC2, or Amazon ECS using Auto Deploy](https://docs.gitlab.com/ee/topics/autodevops/requirements.html)
-- [ ] [Use pull-based deployments for improved Kubernetes management](https://docs.gitlab.com/ee/user/clusters/agent/)
-- [ ] [Set up protected environments](https://docs.gitlab.com/ee/ci/environments/protected_environments.html)
+## 最佳实践
 
-***
+1. **连接池**: 合理设置连接池大小
+2. **错误处理**: 实现重试和降级机制
+3. **监控**: 集成日志和指标收集
+4. **优雅关闭**: 正确处理程序退出时的资源清理
 
-# Editing this README
+## 示例项目
 
-When you're ready to make this README your own, just edit this file and use the handy template below (or feel free to structure it however you want - this is just a starting point!).  Thank you to [makeareadme.com](https://www.makeareadme.com/) for this template.
+查看 `examples/` 目录：
 
-## Suggestions for a good README
-Every project is different, so consider which of these sections apply to yours. The sections used in the template are suggestions for most open source projects. Also keep in mind that while a README can be too long and detailed, too long is better than too short. If you think your README is too long, consider utilizing another form of documentation rather than cutting out information.
+- [Kafka 基础示例](examples/kafka-basic/)
+- [Redis 异步队列](examples/redis-async/)
+- [Watermill 事件流](examples/watermill-stream/)
 
-## Name
-Choose a self-explaining name for your project.
+## 贡献
 
-## Description
-Let people know what your project can do specifically. Provide context and add a link to any reference visitors might be unfamiliar with. A list of Features or a Background subsection can also be added here. If there are alternatives to your project, this is a good place to list differentiating factors.
+欢迎提交 Issue 和 Pull Request！
 
-## Badges
-On some READMEs, you may see small images that convey metadata, such as whether or not all the tests are passing for the project. You can use Shields to add some to your README. Many services also have instructions for adding a badge.
+1. Fork 本仓库
+2. 创建特性分支: `git checkout -b feature/amazing-feature`
+3. 提交更改: `git commit -m 'Add amazing feature'`
+4. 推送分支: `git push origin feature/amazing-feature`
+5. 提交 Pull Request
 
-## Visuals
-Depending on what you are making, it can be a good idea to include screenshots or even a video (you'll frequently see GIFs rather than actual videos). Tools like ttygif can help, but check out Asciinema for a more sophisticated method.
+## 许可证
 
-## Installation
-Within a particular ecosystem, there may be a common way of installing things, such as using Yarn, NuGet, or Homebrew. However, consider the possibility that whoever is reading your README is a novice and would like more guidance. Listing specific steps helps remove ambiguity and gets people to using your project as quickly as possible. If it only runs in a specific context like a particular programming language version or operating system or has dependencies that have to be installed manually, also add a Requirements subsection.
+MIT License - 详见 [LICENSE](LICENSE) 文件
 
-## Usage
-Use examples liberally, and show the expected output if you can. It's helpful to have inline the smallest example of usage that you can demonstrate, while providing links to more sophisticated examples if they are too long to reasonably include in the README.
+## 作者
 
-## Support
-Tell people where they can go to for help. It can be any combination of an issue tracker, a chat room, an email address, etc.
+[@joepeak](https://github.com/joepeak)
 
-## Roadmap
-If you have ideas for releases in the future, it is a good idea to list them in the README.
+## 更新日志
 
-## Contributing
-State if you are open to contributions and what your requirements are for accepting them.
+### v0.3.0
+- ✨ 新增 Watermill 支持
+- 🔧 优化 Kafka 连接池
+- 📝 完善 Redis 错误处理
 
-For people who want to make changes to your project, it's helpful to have some documentation on how to get started. Perhaps there is a script that they should run or some environment variables that they need to set. Make these steps explicit. These instructions could also be useful to your future self.
-
-You can also document commands to lint the code or run tests. These steps help to ensure high code quality and reduce the likelihood that the changes inadvertently break something. Having instructions for running tests is especially helpful if it requires external setup, such as starting a Selenium server for testing in a browser.
-
-## Authors and acknowledgment
-Show your appreciation to those who have contributed to the project.
-
-## License
-For open source projects, say how it is licensed.
-
-## Project status
-If you have run out of energy or time for your project, put a note at the top of the README saying that development has slowed down or stopped completely. Someone may choose to fork your project or volunteer to step in as a maintainer or owner, allowing your project to keep going. You can also make an explicit request for maintainers.
+### v0.2.0
+- 🎉 初始版本发布
+- 📦 Kafka 和 Redis 基础功能
