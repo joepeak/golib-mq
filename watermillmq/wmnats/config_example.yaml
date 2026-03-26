@@ -1,0 +1,43 @@
+# NATS Watermill 配置示例
+mq:
+  watermill:
+    logger:
+      debug: true
+      trace: false
+  natsmq:
+    consumer:
+      name: "my-service-consumer"  # 消费者名称，用于 JetStream Durable Consumer
+      concurrency: 3               # 并发消费者数量
+    url: "nats://localhost:4222"   # NATS 服务器地址
+    retryConnect: true             # 是否重试连接
+    timeout: 30s                   # 连接超时时间
+    reconnectDelay: 5              # 重连延迟（秒）
+
+# 多个不同服务的配置示例
+user_service_mq:
+  watermill:
+    logger:
+      debug: false
+      trace: false
+  natsmq:
+    consumer:
+      name: "user-service-consumer"
+      concurrency: 2
+    url: "nats://localhost:4222"
+    retryConnect: true
+    timeout: 15s
+    reconnectDelay: 3
+
+order_service_mq:
+  watermill:
+    logger:
+      debug: true
+      trace: true
+  natsmq:
+    consumer:
+      name: "order-service-consumer"
+      concurrency: 5
+    url: "nats://localhost:4222"
+    retryConnect: true
+    timeout: 20s
+    reconnectDelay: 2
