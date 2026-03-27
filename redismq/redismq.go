@@ -35,6 +35,23 @@ func init() {
 
 // ===== Redis 连接管理 =====
 
+// getAsynqRedisConnOpt 获取 asynq Redis 连接配置
+func getAsynqRedisConnOpt() asynq.RedisConnOpt {
+	if viper.GetBool("mq.redismq.redis.enabledCluster") {
+		addrs := viper.GetStringSlice("mq.redismq.redis.cluster.addrs")
+		return asynq.RedisClusterClientOpt{
+			Addrs:    addrs,
+			Password: viper.GetString("mq.redismq.redis.password"),
+		}
+	}
+
+	return asynq.RedisClientOpt{
+		Addr:     viper.GetString("mq.redismq.redis.addr"),
+		Password: viper.GetString("mq.redismq.redis.password"),
+		DB:       viper.GetInt("mq.redismq.redis.db"),
+	}
+}
+
 // NewRedisClient 初始化 Redis 连接
 func NewRedisClient() (redis.UniversalClient, error) {
 	if viper.GetBool("mq.redismq.redis.enabledCluster") {
@@ -140,8 +157,12 @@ func GetManager() *RedisMQManager {
 		}
 
 		ctx, cancel := context.WithCancel(context.Background())
+
+		// 获取 asynq Redis 连接配置
+		redisConnOpt := getAsynqRedisConnOpt()
+
 		manager := &RedisMQManager{
-			client:   asynq.NewClientFromRedisClient(RedisClient),
+			client:   asynq.NewClient(redisConnOpt),
 			handlers: make(map[string]asynq.HandlerFunc),
 			ctx:      ctx,
 			cancel:   cancel,
@@ -225,7 +246,7 @@ func (m *RedisMQManager) Start(concurrency int, queues map[string]int) error {
 		}
 	}
 
-	m.server = asynq.NewServerFromRedisClient(RedisClient, asynq.Config{
+	m.server = asynq.NewServer(getAsynqRedisConnOpt(), asynq.Config{
 		Concurrency: concurrency,
 		Queues:      queues,
 	})

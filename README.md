@@ -335,6 +335,8 @@ mq:
 
 #### Redis MQ (Asynq) 配置
 
+##### 单机模式配置
+
 ```yaml
 mq:
   redismq:
@@ -344,8 +346,6 @@ mq:
       db: 0
       enabledCluster: false
       enabledTls: false
-      cluster:
-        addrs: ["redis-1:6379", "redis-2:6379", "redis-3:6379"]
     consumer:
       concurrency: 10
       queues:
@@ -356,6 +356,33 @@ mq:
         - name: "low"
           priority: 1
 ```
+
+##### 集群模式配置
+
+```yaml
+mq:
+  redismq:
+    redis:
+      enabledCluster: true
+      password: ""
+      enabledTls: false
+      cluster:
+        addrs: 
+          - "redis-node1:6379"
+          - "redis-node2:6379"
+          - "redis-node3:6379"
+    consumer:
+      concurrency: 10
+      queues:
+        - name: "critical"
+          priority: 6
+        - name: "default"
+          priority: 3
+        - name: "low"
+          priority: 1
+```
+
+**🚀 新特性**: Redis MQ 现已完全支持 Redis 集群模式，提供高可用性和数据分片能力。
 
 #### Redis Client 配置
 
@@ -540,6 +567,12 @@ MIT License - 详见 [LICENSE](LICENSE) 文件
 [@joepeak](https://github.com/joepeak)
 
 ## 更新日志
+
+### v0.5.0
+- 🚀 **重大更新**: Redis MQ 完全支持 Redis 集群模式
+- 🔧 优化 asynq 配置，自动适配单机/集群模式
+- 📝 完善 Redis 集群配置文档和示例
+- 🛡️ 提升 Redis 集群环境下的稳定性和性能
 
 ### v0.4.0
 - ✨ 新增 Redis Client (Pub/Sub + 分布式锁)
