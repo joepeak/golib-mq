@@ -432,13 +432,16 @@ golib-mq/
 3. **监控**: 集成日志和指标收集
 4. **优雅关闭**: 正确处理程序退出时的资源清理
 
-## 示例项目
+## 使用示例
 
-查看 `examples/` 目录：
+本README中的代码示例涵盖了各种消息队列的基本用法：
 
-- [Kafka 基础示例](examples/kafka-basic/)
-- [Redis 异步队列](examples/redis-async/)
-- [Watermill 事件流](examples/watermill-stream/)
+- **Kafka 示例**：生产者和消费者的基本实现
+- **Redis MQ 示例**：基于Asynq的异步任务处理
+- **Redis Client 示例**：Pub/Sub发布订阅和分布式锁
+- **Watermill 示例**：事件驱动架构实现
+
+更多详细用法请参考各包的文档和代码注释。
 
 ## 贡献
 
