@@ -3,12 +3,12 @@ module github.com/joepeak/golib-mq
 go 1.22
 
 require (
-	github.com/joepeak/golib-conf v0.3.0
 	github.com/IBM/sarama v1.45.1
 	github.com/ThreeDotsLabs/watermill v1.4.6
 	github.com/ThreeDotsLabs/watermill-kafka/v3 v3.0.6
 	github.com/ThreeDotsLabs/watermill-nats/v2 v2.1.3
 	github.com/hibiken/asynq v0.25.1
+	github.com/joepeak/golib-conf v0.3.0
 	github.com/nats-io/nats.go v1.37.0
 	github.com/redis/go-redis/v9 v9.7.0
 	github.com/sirupsen/logrus v1.9.3
