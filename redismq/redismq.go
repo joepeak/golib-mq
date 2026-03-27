@@ -11,8 +11,8 @@ import (
 
 	_ "github.com/joepeak/golib-conf"
 
-	redis "github.com/redis/go-redis/v9"
 	"github.com/hibiken/asynq"
+	redis "github.com/redis/go-redis/v9"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 )
@@ -162,7 +162,7 @@ func (m *RedisMQManager) RegisterHandler(taskType string, handler asynq.HandlerF
 	if m.mux == nil {
 		m.mux = asynq.NewServeMux()
 	}
-	
+
 	m.mux.HandleFunc(taskType, handler)
 	m.handlers[taskType] = handler
 	logrus.Infof("Registered handler for task type: %s, total handlers: %d", taskType, len(m.handlers))

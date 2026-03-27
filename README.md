@@ -465,8 +465,6 @@ golib-mq/
 │       ├── manager.go
 │       ├── wmnats.go
 │       └── example_usage.go
-├── convert/              # 数据转换工具
-│   └── convert.go
 ├── util/                 # 工具函数
 │   └── util.go
 ├── go.mod

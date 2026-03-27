@@ -2,15 +2,20 @@ package redisclient
 
 import (
 	"context"
+	"encoding/json"
 	"time"
 
-	"github.com/joepeak/golib-mq/convert"
 	"github.com/sirupsen/logrus"
 )
 
 // Publish 发布消息
 func Publish(ctx context.Context, channel string, message interface{}) error {
-	_, err := DefaultClient.Publish(ctx, channel, convert.ObjToJson(message)).Result()
+	data, err := json.Marshal(message)
+	if err != nil {
+		return err
+	}
+	
+	_, err = DefaultClient.Publish(ctx, channel, string(data)).Result()
 	return err
 }
 

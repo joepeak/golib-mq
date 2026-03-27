@@ -11,7 +11,6 @@ import (
 )
 
 // 获取分布式锁
-// 获取分布式锁
 func Lock(lockKey string) (*redsync.Mutex, error) {
 	opts := LockOptions{
 		Expiration: viper.GetInt32("redis.lock.expiration"),
