@@ -76,6 +76,56 @@ func main() {
 
 ### Redis MQ 示例 (基于Asynq)
 
+#### 方式1：使用管理器（推荐）
+
+```go
+package main
+
+import (
+    "context"
+    "log"
+    
+    "github.com/joepeak/golib-mq/redismq"
+    "github.com/hibiken/asynq"
+    _ "github.com/joepeak/golib-conf"
+)
+
+func main() {
+    // 注册任务处理器
+    err := redismq.RegisterTaskHandler("email:send", func(ctx context.Context, task *asynq.Task) error {
+        log.Printf("发送邮件: %s", string(task.Payload()))
+        return nil
+    })
+    if err != nil {
+        log.Fatal(err)
+    }
+    
+    // 启动服务器
+    err = redismq.StartRedisMQServer(10, map[string]int{
+        "critical": 6,
+        "default":  3,
+        "low":      1,
+    })
+    if err != nil {
+        log.Fatal(err)
+    }
+    
+    // 发送任务
+    taskInfo, err := redismq.EnqueueTask("email:send", map[string]interface{}{
+        "to":      "user@example.com",
+        "subject": "Hello",
+        "body":    "Test message",
+    })
+    if err != nil {
+        log.Printf("发送失败: %v", err)
+    } else {
+        log.Printf("任务ID: %s", taskInfo.ID)
+    }
+}
+```
+
+#### 方式2：使用分离的生产者/消费者（原有方式）
+
 ```go
 package main
 
@@ -85,6 +135,7 @@ import (
     
     "github.com/joepeak/golib-mq/redismq/producer"
     "github.com/joepeak/golib-mq/redismq/consumer"
+    "github.com/hibiken/asynq"
     _ "github.com/joepeak/golib-conf"
 )
 
@@ -113,6 +164,61 @@ func main() {
     if err != nil {
         log.Fatal(err)
     }
+}
+```
+
+#### 方式3：使用管理器对象
+
+```go
+package main
+
+import (
+    "context"
+    "log"
+    
+    "github.com/joepeak/golib-mq/redismq"
+    "github.com/hibiken/asynq"
+    _ "github.com/joepeak/golib-conf"
+)
+
+func main() {
+    // 获取管理器
+    manager := redismq.GetManager()
+    
+    // 注册处理器
+    err := manager.RegisterHandler("email:send", func(ctx context.Context, task *asynq.Task) error {
+        log.Printf("发送邮件: %s", string(task.Payload()))
+        return nil
+    })
+    if err != nil {
+        log.Fatal(err)
+    }
+    
+    // 启动服务器
+    err = manager.Start(10, map[string]int{
+        "critical": 6,
+        "default":  3,
+        "low":      1,
+    })
+    if err != nil {
+        log.Fatal(err)
+    }
+    
+    // 发送任务
+    taskInfo, err := manager.EnqueueTask("email:send", map[string]interface{}{
+        "to":      "user@example.com",
+        "subject": "Hello",
+        "body":    "Test message",
+    })
+    if err != nil {
+        log.Printf("发送失败: %v", err)
+    } else {
+        log.Printf("任务ID: %s", taskInfo.ID)
+    }
+    
+    // 获取统计信息
+    stats := manager.GetStats()
+    log.Printf("RedisMQ状态: %+v", stats)
 }
 ```
 
@@ -330,6 +436,36 @@ func (c *Consumer) Close() error
 
 ### Redis MQ 接口 (Asynq)
 
+#### 管理器接口（推荐）
+
+```go
+// 管理器
+func GetManager() *RedisMQManager
+func (m *RedisMQManager) RegisterHandler(taskType string, handler asynq.HandlerFunc) error
+func (m *RedisMQManager) EnqueueTask(taskType string, data any, opts ...asynq.Option) (*asynq.TaskInfo, error)
+func (m *RedisMQManager) EnqueueTaskWithDelay(taskType string, data any, duration time.Duration) (*asynq.TaskInfo, error)
+func (m *RedisMQManager) EnqueueTaskAt(taskType string, data any, t time.Time) (*asynq.TaskInfo, error)
+func (m *RedisMQManager) EnqueueCriticalTask(taskType string, data any) (*asynq.TaskInfo, error)
+func (m *RedisMQManager) EnqueueLowTask(taskType string, data any) (*asynq.TaskInfo, error)
+func (m *RedisMQManager) Start(concurrency int, queues map[string]int) error
+func (m *RedisMQManager) Stop()
+func (m *RedisMQManager) IsRunning() bool
+func (m *RedisMQManager) GetStats() map[string]interface{}
+
+// 全局便捷函数
+func EnqueueTask(taskType string, payload interface{}, options ...asynq.Option) (*asynq.TaskInfo, error)
+func EnqueueTaskWithDelay(taskType string, payload interface{}, delay time.Duration) (*asynq.TaskInfo, error)
+func EnqueueTaskAt(taskType string, payload interface{}, processAt time.Time) (*asynq.TaskInfo, error)
+func EnqueueCriticalTask(taskType string, payload interface{}) (*asynq.TaskInfo, error)
+func EnqueueLowTask(taskType string, payload interface{}) (*asynq.TaskInfo, error)
+func RegisterTaskHandler(taskType string, handler asynq.HandlerFunc) error
+func StartRedisMQServer(concurrency int, queues map[string]int) error
+func StopRedisMQServer()
+func GetRedisMQStats() map[string]interface{}
+```
+
+#### 传统接口（向后兼容）
+
 ```go
 // 生产者
 func Push(taskName string, data any) (*asynq.TaskInfo, error)
@@ -372,7 +508,10 @@ golib-mq/
 │   │   └── consumer.go
 │   ├── producer/
 │   │   └── producer.go
-│   └── redismq.go
+│   ├── redismq.go       # Redis 连接初始化
+│   ├── manager.go        # 管理器实现
+│   ├── task.go          # 任务创建工具
+│   └── global.go        # 全局便捷函数
 ├── redisclient/          # Redis Client 实现 (Pub/Sub + 分布式锁)
 │   ├── redisclient.go   # Redis 连接和配置
 │   ├── pubsub.go        # Pub/Sub 发布订阅
