@@ -76,7 +76,7 @@ func main() {
 
 ### Redis MQ 示例 (基于Asynq)
 
-#### 方式1：使用管理器（推荐）
+#### 方式1：使用全局函数（推荐）
 
 ```go
 package main
@@ -124,50 +124,7 @@ func main() {
 }
 ```
 
-#### 方式2：使用分离的生产者/消费者（原有方式）
-
-```go
-package main
-
-import (
-    "context"
-    "log"
-    
-    "github.com/joepeak/golib-mq/redismq/producer"
-    "github.com/joepeak/golib-mq/redismq/consumer"
-    "github.com/hibiken/asynq"
-    _ "github.com/joepeak/golib-conf"
-)
-
-func main() {
-    // 发送任务消息
-    taskInfo, err := producer.Push("email:send", map[string]interface{}{
-        "to":      "user@example.com",
-        "subject": "Hello",
-        "body":    "Test message",
-    })
-    if err != nil {
-        log.Printf("发送失败: %v", err)
-    } else {
-        log.Printf("任务ID: %s", taskInfo.ID)
-    }
-    
-    // 消费任务
-    handlers := map[string]func(ctx context.Context, task *asynq.Task) error{
-        "email:send": func(ctx context.Context, task *asynq.Task) error {
-            log.Printf("发送邮件: %s", string(task.Payload()))
-            return nil
-        },
-    }
-    
-    err = consumer.Run(context.Background(), handlers)
-    if err != nil {
-        log.Fatal(err)
-    }
-}
-```
-
-#### 方式3：使用管理器对象
+#### 方式2：使用管理器对象
 
 ```go
 package main
@@ -436,8 +393,6 @@ func (c *Consumer) Close() error
 
 ### Redis MQ 接口 (Asynq)
 
-#### 管理器接口（推荐）
-
 ```go
 // 管理器
 func GetManager() *RedisMQManager
@@ -462,19 +417,12 @@ func RegisterTaskHandler(taskType string, handler asynq.HandlerFunc) error
 func StartRedisMQServer(concurrency int, queues map[string]int) error
 func StopRedisMQServer()
 func GetRedisMQStats() map[string]interface{}
-```
 
-#### 传统接口（向后兼容）
+// 任务创建
+func NewTask(name string, data any) (*asynq.Task, error)
 
-```go
-// 生产者
-func Push(taskName string, data any) (*asynq.TaskInfo, error)
-func PushInQueue(queueName, taskName string, data any, opts ...asynq.Option) (*asynq.TaskInfo, error)
-func PushWithDelay(queueName, taskName string, data any, duration time.Duration) (*asynq.TaskInfo, error)
-func PushWithTime(taskName string, data any, t time.Time) (*asynq.TaskInfo, error)
-
-// 消费者
-func Run(ctx context.Context, handlers map[string]func(ctx context.Context, task *asynq.Task) error) error
+// Redis 连接
+func NewRedisClient() (redis.UniversalClient, error)
 ```
 
 ### Redis Client 接口 (Pub/Sub + 锁)
@@ -504,14 +452,7 @@ golib-mq/
 │   │   └── producer.go
 │   └── kafkamq.go
 ├── redismq/              # Redis MQ 实现 (基于Asynq)
-│   ├── consumer/
-│   │   └── consumer.go
-│   ├── producer/
-│   │   └── producer.go
-│   ├── redismq.go       # Redis 连接初始化
-│   ├── manager.go        # 管理器实现
-│   ├── task.go          # 任务创建工具
-│   └── global.go        # 全局便捷函数
+│   └── redismq.go        # 统一的Redis MQ实现
 ├── redisclient/          # Redis Client 实现 (Pub/Sub + 分布式锁)
 │   ├── redisclient.go   # Redis 连接和配置
 │   ├── pubsub.go        # Pub/Sub 发布订阅
